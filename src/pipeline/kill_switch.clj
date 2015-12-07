@@ -10,7 +10,7 @@
             [pipeline.protocols :refer :all])
   (:import java.sql.SQLException))
 
-(def ^:private min-kill-messages 20)
+(def ^:private kill-chan-buff-size 20)
 
 (defn- exception->map
   "Build a map from an exception.  Copied out of staples-sparx/kits
@@ -57,7 +57,7 @@
 
 (defn create []
   (map->AtomicKillSwitch
-   (let [listener-chan (async/chan (async/dropping-buffer min-kill-messages))]
+   (let [listener-chan (async/chan (async/dropping-buffer kill-chan-buff-size))]
      {:state (atom [])
       :listener-chan listener-chan
       :listener-mult (async/mult listener-chan)})))
