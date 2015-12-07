@@ -1,0 +1,118 @@
+  (ns ^{:doc "Start a listener process, which is always a green
+              thread.  Takes an internal control channel, a jobs
+              channel, and a factory function that is called with
+              context maps to create PipelineImpl instances.  The
+              listener process maintains a vector of channels to
+              listen on, starting with just the internal control
+              channel.  When it gets control
+              messages (like [input-chan, output-chan, kill-switch,
+              context]), it adds the input channel to its vector of
+              channels and tracks state for that input channel.  It
+              then listens to messages an all of its input channels
+              and the control channel. The results of handling the job
+              message are put onto the output channel associated with
+              the input channel.  When exceptions are caught the
+              kill-switch is triggered, errors are stored, and work is
+              halted.  Closing an input channel triggers closing the
+              associate output channels, as well as forgetting the
+              state.  When the input channel close, the PipelineImpl
+              instance finish method is called."}
+      pipeline.process.listener
+    (:require [clojure.core.async :as async]
+              [clojure.core.match :refer [match]]
+              [pipeline.process.messages :as messages]
+              [pipeline.process.protocols :refer :all]
+              [pipeline.protocols :as prots]
+              [pipeline.utils.async :as local-async]
+              [pipeline.utils.schema :as local-schema]
+              [schema.core :as schema]))
+
+(defn- submit-a-job [jobs-chan pipeline-impl message state]
+  (async/go
+    (let [promise-chan (async/chan 1)]
+      (async/>! jobs-chan [promise-chan pipeline-impl message state])
+      (async/<! promise-chan))))
+
+(schema/defn listen :- local-schema/Chan
+  [control-input-chan :- local-schema/Chan
+   jobs :- local-schema/Chan
+   pimpl-factory-fn :- (schema/pred fn?)]
+  (async/go-loop [input-chans [control-input-chan]
+                  input-chan->pipeline {}]
+    (if (= [] input-chans)
+      (async/close! jobs)
+      (match
+       (async/alts! input-chans)
+
+       [nil control-input-chan]
+       (recur (filterv (partial not= control-input-chan) input-chans)
+              input-chan->pipeline)
+
+       [[input-chan output-chan kill-switch context]
+        control-input-chan]
+       (let [kill-chan (prots/tap kill-switch (async/chan (async/dropping-buffer 1)))]
+         (recur (into input-chans [input-chan kill-chan])
+                (assoc input-chan->pipeline
+                       input-chan (map->PipelineTaskImpl
+                                   {:pimpl (pimpl-factory-fn context)
+                                    :kill-switch kill-switch
+                                    :out-chan output-chan
+                                    :kill-chan kill-chan
+                                    :in-chan input-chan})
+                       kill-chan input-chan)))
+
+       [_ control-input-chan]
+       (recur input-chans input-chan->pipeline)
+
+       [message message-chan]
+       (let [inchan-or-state
+             (get input-chan->pipeline message-chan)
+
+             [input-chan pipeline-task-impl]
+             (if (local-async/channel? inchan-or-state)
+               [inchan-or-state (get input-chan->pipeline inchan-or-state)]
+               [message-chan inchan-or-state])
+
+             killed?
+             (kill-chan? pipeline-task-impl message-chan)
+
+             [message some-message?]
+             (cond
+               (nil? message) [messages/none false]
+               killed? [messages/none false]
+               :else [message true])
+
+             job-result
+             (async/<! (submit-a-job jobs
+                                     pipeline-task-impl
+                                     message
+                                     (if killed? messages/killed messages/ok)))]
+
+         (cond
+           (instance? Throwable job-result)
+           (do (prots/kill-exception! pipeline-task-impl
+                                      (ex-info "Job handler threw exception"
+                                               {:input-message message
+                                                :message-chan message-chan}
+                                               job-result))
+               (if some-message?
+                 (async/<! (submit-a-job jobs pipeline-task-impl messages/none messages/exception))))
+
+           (reduced? job-result)
+           (do (prots/kill! pipeline-task-impl {:message "Job was aborted during processing"
+                                                :input-message message
+                                                :message-chan message-chan})
+               (if some-message?
+                 (async/<! (submit-a-job jobs pipeline-task-impl messages/none messages/killed)))))
+
+         (if (and some-message?
+                  (out-chan? pipeline-task-impl job-result))
+           (recur input-chans input-chan->pipeline)
+           (do (close-out-chan! pipeline-task-impl)
+               (recur (filterv (complement
+                                #(some (partial = %)
+                                       [input-chan (kill-chan pipeline-task-impl)]))
+                               input-chans)
+                      (dissoc input-chan->pipeline
+                              input-chan
+                              kill-chan)))))))))
