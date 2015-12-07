@@ -2,6 +2,7 @@
   pipeline.process-test
   (:require [clojure.core.async :as async]
             [clojure.test :refer :all]
+            [pipeline.control :as control]
             [pipeline.kill-switch :as kill-switch]
             [pipeline.process :as process]
             [pipeline.process.worker :as worker]
@@ -89,7 +90,11 @@
         squarer-1-finished? (atom ::unknown)
         in-chan-1 (async/chan)
         out-chan-1 (async/chan)
-        _ (async/>!! control-chan-1 [in-chan-1 out-chan-1 kill-switch {:p 1}])
+        _ (control/send-message control-chan-1
+                                :input-chan in-chan-1
+                                :output-chan out-chan-1
+                                :kill-switch kill-switch
+                                :context {:p 1})
         _ (process/create 3
                           control-chan-1
                           (squarer-factory squarer-1-finished?)
@@ -102,7 +107,11 @@
         squarer-2-finished? (atom ::unknown)
         in-chan-2 (async/chan)
         out-chan-2 (async/chan)
-        _ (async/>!! control-chan-2 [in-chan-2 out-chan-2 kill-switch {:p 2}])
+        _ (control/send-message control-chan-2
+                                :input-chan in-chan-2
+                                :output-chan out-chan-2
+                                :kill-switch kill-switch
+                                :context {:p 2})
         _ (process/create 3
                           control-chan-2
                           (squarer-factory squarer-2-finished?)
@@ -149,7 +158,11 @@
         squarer-1-finished? (atom ::unknown)
         in-chan-1 (async/chan)
         out-chan-1 (async/chan)
-        _ (async/>!! control-chan-1 [in-chan-1 out-chan-1 kill-switch {:p 1}])
+        _ (control/send-message control-chan-1
+                                :input-chan in-chan-1
+                                :output-chan out-chan-1
+                                :kill-switch kill-switch
+                                :context {:p 1})
         _ (process/create 3
                           control-chan-1
                           (fin-squarer-factory squarer-1-finished?)
@@ -159,7 +172,11 @@
         control-chan-2 (async/chan 1)
         in-chan-2 out-chan-1
         out-chan-2 (async/chan)
-        _ (async/>!! control-chan-2 [in-chan-2 out-chan-2 kill-switch {:p 2}])
+        _ (control/send-message control-chan-2
+                                :input-chan in-chan-2
+                                :output-chan out-chan-2
+                                :kill-switch kill-switch
+                                :context {:p 2})
         _ (process/create 10
                           control-chan-2
                           ->Sleeper
@@ -170,7 +187,11 @@
         squarer-2-finished? (atom ::unknown)
         in-chan-3 out-chan-2
         out-chan-3 (async/chan)
-        _ (async/>!! control-chan-3 [in-chan-3 out-chan-3 kill-switch {:p 3}])
+        _ (control/send-message control-chan-3
+                                :input-chan in-chan-3
+                                :output-chan out-chan-3
+                                :kill-switch kill-switch
+                                :context {:p 3})
         _ (process/create 3
                           control-chan-3
                           (squarer-factory squarer-2-finished?)
@@ -181,7 +202,11 @@
         duplicator-finished? (atom ::unknown)
         in-chan-4 out-chan-3
         out-chan-4 (async/chan)
-        _ (async/>!! control-chan-4 [in-chan-4 out-chan-4 kill-switch {:p 4}])
+        _ (control/send-message control-chan-4
+                                :input-chan in-chan-4
+                                :output-chan out-chan-4
+                                :kill-switch kill-switch
+                                :context {:p 4})
         _ (process/create 3
                           control-chan-4
                           (duplicator-factory duplicator-finished?)
@@ -238,7 +263,11 @@
           squarer-1-finished? (atom ::unknown)
           in-chan-1 (async/chan)
           out-chan-1 (async/chan)
-          _ (async/>!! control-chan-1 [in-chan-1 out-chan-1 kill-switch {:p 1}])
+          _ (control/send-message control-chan-1
+                                  :input-chan in-chan-1
+                                  :output-chan out-chan-1
+                                  :kill-switch kill-switch
+                                  :context {:p 1})
           _ (process/create 3
                             control-chan-1
                             (squarer-factory squarer-1-finished?)
@@ -249,7 +278,11 @@
           puker-finished? (atom ::unknown)
           in-chan-2 out-chan-1
           out-chan-2 (async/chan)
-          _ (async/>!! control-chan-2 [in-chan-2 out-chan-2 kill-switch {:p 2}])
+          _ (control/send-message control-chan-2
+                                  :input-chan in-chan-2
+                                  :output-chan out-chan-2
+                                  :kill-switch kill-switch
+                                  :context {:p 2})
           _ (process/create 1
                             control-chan-2
                             (puker-factory puker-finished?)
@@ -260,7 +293,11 @@
           squarer-2-finished? (atom ::unknown)
           in-chan-3 out-chan-2
           out-chan-3 (async/chan)
-          _ (async/>!! control-chan-3 [in-chan-3 out-chan-3 kill-switch {:p 3}])
+          _ (control/send-message control-chan-3
+                                  :input-chan in-chan-3
+                                  :output-chan out-chan-3
+                                  :kill-switch kill-switch
+                                  :context {:p 3})
           _ (process/create 3
                             control-chan-3
                             (squarer-factory squarer-2-finished?)
