@@ -21,7 +21,7 @@
       (async/<! promise-chan))))
 
 (schema/defn listen :- local-schema/Chan
-  "Start a listener process, which is always a green thread.
+  "Start a listener green thread
 
    Takes:
    - Internal control channel
