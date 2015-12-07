@@ -356,3 +356,37 @@
 
       (testing "The kill switch was triggered"
         (is (true? (killed? kill-switch)))))))
+
+(deftest ^:unit test-bad-factory
+  (let [kill-switch (kill-switch/create)
+        control-chan (async/chan 1)
+        in-chan (async/chan)
+        out-chan (async/chan)]
+
+    (control/send-message control-chan
+                          :input-chan in-chan
+                          :output-chan out-chan
+                          :kill-switch kill-switch
+                          :context {:p 1})
+    (process/create 3
+                    control-chan
+                    (constantly :foo)
+                    :compute)
+
+    ;; Send input asynchronously
+    (async/onto-chan in-chan [0 1 2 3 4 5 6 7 8 9])
+
+    (testing "output channel got closed"
+      (is (true? (test-utils/attempt-until #(async-utils/closed? out-chan)
+                                           true?
+                                           :ms-per-loop 10
+                                           :timeout 1000))))
+
+    (testing "kill-switch is triggered"
+      (is (true? (test-utils/attempt-until #(killed? kill-switch)
+                                           true?
+                                           :ms-per-loop 10
+                                           :timeout 1000)))
+      (is (= 3 (count (errors kill-switch))))
+      (is (= "Factory did not return a PipelineImpl"
+             (-> (errors kill-switch) first :message))))))
