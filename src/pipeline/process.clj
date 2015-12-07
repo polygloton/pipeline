@@ -11,7 +11,7 @@
             channel being another's input channel) to create the data-processing
             pipeline.  Closing the first input channel cascades closure through
             the pipeline until the last output channel in the chain is closed.
-            This is how termination detection is implemented.  An instance of
+            This is how termination detection is enabled.  An instance of
             the KillSwitch protocol is used to determine if there were any
             errors during processing and to quickly kill the ad hoc chain when
             there are errors.  Input/output channel pairings are established by
