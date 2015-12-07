@@ -59,11 +59,13 @@
 
        [[input-chan output-chan kill-switch context]
         control-input-chan]
-       (let [kill-chan (prots/tap kill-switch (async/chan (async/dropping-buffer 1)))]
+       (let [kill-chan (prots/tap kill-switch (async/chan (async/dropping-buffer 1)))
+             pimpl (schema/validate (schema/protocol prots/PipelineImpl)
+                                    (pimpl-factory-fn context))]
          (recur (into input-chans [input-chan kill-chan])
                 (assoc input-chan->pipeline
                        input-chan (map->PipelineTaskImpl
-                                   {:pimpl (pimpl-factory-fn context)
+                                   {:pimpl pimpl
                                     :kill-switch kill-switch
                                     :out-chan output-chan
                                     :kill-chan kill-chan
