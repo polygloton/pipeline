@@ -1,4 +1,5 @@
-(ns ^{:doc "TODO"}
+(ns ^{:doc "The worker takes messages from the jobs channel and handles them
+            on either a green thread or a real thread (configurable)."}
   pipeline.process.worker
   (:require [clojure.core.async :as async]
             [pipeline.protocols :as prots]
@@ -70,6 +71,20 @@
        (async/close! promise-chan#))))
 
 (schema/defn work :- local-schema/Chan
+  "Start a worker process (on either a green or real thread)
+
+   Takes:
+   - Mode keyword indicating green or real
+   - Jobs channel
+
+   Returns: Go-block results channel
+
+   The worker takes jobs off of the jobs channel and uses the
+   PipelineImpl methods to handle inputs.  Successful results are put
+   on the output-channel.  Exceptions are caught and passed back to
+   the listener on the job's promise channel.  If putting on the
+   output-channel is blocking, the kill-switch is periodically checked
+   to see if there was an error on another thread."
   [mode :- (schema/enum :blocking :compute)
    jobs-chan :- local-schema/Chan]
   (case mode

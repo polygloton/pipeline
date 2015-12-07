@@ -1,4 +1,4 @@
-(ns ^{:doc "Protocols that are used by the process internally
+(ns ^{:doc "Protocols that are used by the listner and worker.
             Not intended for external use."}
     pipeline.process.protocols
   (:require [clojure.core.async :as async]

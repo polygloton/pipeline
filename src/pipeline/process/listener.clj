@@ -1,23 +1,7 @@
-  (ns ^{:doc "Start a listener process, which is always a green
-              thread.  Takes an internal control channel, a jobs
-              channel, and a factory function that is called with
-              context maps to create PipelineImpl instances.  The
-              listener process maintains a vector of channels to
-              listen on, starting with just the internal control
-              channel.  When it gets control
-              messages (like [input-chan, output-chan, kill-switch,
-              context]), it adds the input channel to its vector of
-              channels and tracks state for that input channel.  It
-              then listens to messages an all of its input channels
-              and the control channel. The results of handling the job
-              message are put onto the output channel associated with
-              the input channel.  When exceptions are caught the
-              kill-switch is triggered, errors are stored, and work is
-              halted.  Closing an input channel triggers closing the
-              associate output channels, as well as forgetting the
-              state.  When the input channel close, the PipelineImpl
-              instance finish method is called."}
-      pipeline.process.listener
+  (ns ^{:doc "The listener takes messages from input channels and handles
+              them by creating jobs and submitting them on the jobs
+              channel.  Also tracks state related to input-channels."}
+    pipeline.process.listener
     (:require [clojure.core.async :as async]
               [clojure.core.match :refer [match]]
               [pipeline.process.messages :as messages]
@@ -27,13 +11,38 @@
               [pipeline.utils.schema :as local-schema]
               [schema.core :as schema]))
 
-(defn- submit-a-job [jobs-chan pipeline-impl message state]
+(defn- submit-a-job
+  "Asynchronously put a job message onto the jobs channel and wait for
+  the result.  Returns a results channel."
+  [jobs-chan pipeline-impl message state]
   (async/go
     (let [promise-chan (async/chan 1)]
       (async/>! jobs-chan [promise-chan pipeline-impl message state])
       (async/<! promise-chan))))
 
 (schema/defn listen :- local-schema/Chan
+  "Start a listener process, which is always a green thread.
+
+   Takes:
+   - Internal control channel
+   - Jobs channel
+   - Factory fn that is called with a context to create a PipelineImpl
+     instance
+
+   Returns: Go-block results channel
+
+   The listener process maintains a vector of channels to listen on,
+   starting with just the internal control channel.  When it gets
+   control messages, it adds the input channel to its vector of
+   channels and tracks state for that input channel.  It then listens
+   for messages on an all of its input channels and the control
+   channel. Messages are made into jobs which are put onto the jobs
+   channel.  Workers pick up jobs and put results onto the
+   output-channel, possibly catching and returning exceptions.  When
+   exceptions are caught the kill-switch is triggered, errors are
+   stored, and work is halted for the related input-channel.  Closing
+   an input channel triggers closing the associate output channel, as
+   well as forgetting the state."
   [control-input-chan :- local-schema/Chan
    jobs :- local-schema/Chan
    pimpl-factory-fn :- (schema/pred fn?)]

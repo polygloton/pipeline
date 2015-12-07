@@ -1,4 +1,4 @@
-(ns ^{:doc "Protocols for abstractions used in the pipeline async code"}
+(ns ^{:doc "Protocols used by the pipeline"}
     pipeline.protocols)
 
 (defprotocol KillSwitch
