@@ -31,7 +31,7 @@
 
    Returns: Go-block results channel
 
-   The listener process maintains a vector of channels to listen on,
+   The listener thread maintains a vector of channels to listen on,
    starting with just the internal control channel.  When it gets
    control messages, it adds the input channel to its vector of
    channels and tracks state for that input channel.  It then listens
@@ -47,7 +47,7 @@
    jobs :- local-schema/Chan
    pimpl-factory-fn :- (schema/pred fn?)]
   (async/go-loop [input-chans [control-input-chan]
-                  input-chan->pipeline {}]
+                  input-chan->pimpl {}]
     (if (= [] input-chans)
       (async/close! jobs)
       (match
@@ -55,7 +55,7 @@
 
        [nil control-input-chan]
        (recur (filterv (partial not= control-input-chan) input-chans)
-              input-chan->pipeline)
+              input-chan->pimpl)
 
        [[input-chan output-chan kill-switch context]
         control-input-chan]
@@ -63,7 +63,7 @@
              pimpl (pimpl-factory-fn context)]
          (if (satisfies? prots/PipelineImpl pimpl)
            (recur (into input-chans [input-chan kill-chan])
-                  (assoc input-chan->pipeline
+                  (assoc input-chan->pimpl
                          input-chan (map->PipelineTaskImpl
                                      {:pimpl pimpl
                                       :kill-switch kill-switch
@@ -75,18 +75,18 @@
                             {:message "Factory did not return a PipelineImpl"
                              :context context})
                (async/close! output-chan)
-               (recur input-chans input-chan->pipeline))))
+               (recur input-chans input-chan->pimpl))))
 
        [_ control-input-chan]
-       (recur input-chans input-chan->pipeline)
+       (recur input-chans input-chan->pimpl)
 
        [message message-chan]
        (let [inchan-or-state
-             (get input-chan->pipeline message-chan)
+             (get input-chan->pimpl message-chan)
 
              [input-chan pipeline-task-impl]
              (if (local-async/channel? inchan-or-state)
-               [inchan-or-state (get input-chan->pipeline inchan-or-state)]
+               [inchan-or-state (get input-chan->pimpl inchan-or-state)]
                [message-chan inchan-or-state])
 
              killed?
@@ -123,12 +123,12 @@
 
          (if (and some-message?
                   (out-chan? pipeline-task-impl job-result))
-           (recur input-chans input-chan->pipeline)
+           (recur input-chans input-chan->pimpl)
            (do (close-out-chan! pipeline-task-impl)
                (recur (filterv (complement
                                 #(some (partial = %)
                                        [input-chan (kill-chan pipeline-task-impl)]))
                                input-chans)
-                      (dissoc input-chan->pipeline
+                      (dissoc input-chan->pimpl
                               input-chan
                               kill-chan)))))))))
