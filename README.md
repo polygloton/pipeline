@@ -6,8 +6,6 @@ A Clojure library for building data-processing chain pipelines
 
 Add this dependency to your leiningen project.clj
 
-TODO - Change to staples-sparx once it is on clojars
-
 [polyglogon/pipeline "0.1.0"]
 
 There are multiple concepts to learn when building a pipeline.
