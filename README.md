@@ -44,8 +44,7 @@ Here is a contrived example that repeatedly reuses a pipeline
   (->Summer (atom 0)))
 
 (defn run []
-  (let [kill-switch (kill-switch/create)
-        control-chan-1 (async/chan 1)
+  (let [control-chan-1 (async/chan 1)
         control-chan-2 (async/chan 1)]
     (process/create 3
                     control-chan-1
@@ -56,7 +55,8 @@ Here is a contrived example that repeatedly reuses a pipeline
                     summer-factory
                     :compute)
     (doseq [i (range 100)
-            :let [in-chan-1 (async/chan)
+            :let [kill-switch (kill-switch/create)
+                  in-chan-1 (async/chan)
                   in-chan-2 (async/chan)
                   out-chan-2 (async/chan)]]
       (async/onto-chan in-chan-1 [1 2 3 4 5])
