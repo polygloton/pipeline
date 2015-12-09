@@ -8,8 +8,6 @@ Add this dependency to your leiningen project.clj
 
 [polyglogon/pipeline "0.1.0"]
 
-There are multiple concepts to learn when building a pipeline.
-
 ### Example code
 
 Here is a contrived example that repeatedly reuses a pipeline
@@ -103,6 +101,8 @@ TODO
 TODO
 
 ### Termination detection
+
+TODO
 
 ## Differences with clojure.core.async/pipeline
 
