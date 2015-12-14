@@ -104,6 +104,10 @@ TODO
 
 TODO
 
+### Back Pressure
+
+TODO
+
 ## Differences with clojure.core.async/pipeline
 
 This pipeline implementation is inspired by core.async/pipeline, but
